@@ -64,6 +64,17 @@
             <span>&#128717;</span> Product Report
         </a>
 
+        <p class="px-4 pt-4 pb-1 text-xs font-semibold text-gray-500 uppercase">Accounting</p>
+        <a href="{{ route('reports.profit-loss') }}" class="{{ $navLink('reports.profit-loss', 'Profit & Loss', '', 'reports.profit-loss*')[0] }}">
+            <span>&#128176;</span> Profit &amp; Loss
+        </a>
+        <a href="{{ route('expenses.index') }}" class="{{ $navLink('expenses.index', 'Expenses', '', 'expenses.*')[0] }}">
+            <span>&#129534;</span> Expenses
+        </a>
+        <a href="{{ route('reports.receivables') }}" class="{{ $navLink('reports.receivables', 'Accounts Receivable', '', 'reports.receivables*')[0] }}">
+            <span>&#128220;</span> Accounts Receivable
+        </a>
+
         @if (auth()->user()?->isManager())
             <p class="px-4 pt-4 pb-1 text-xs font-semibold text-gray-500 uppercase">Administration</p>
             <a href="{{ route('settings.edit') }}" class="{{ $navLink('settings.edit', 'Settings', '', 'settings.edit')[0] }}">

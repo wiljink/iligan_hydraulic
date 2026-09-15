@@ -34,6 +34,23 @@ class SaleController extends Controller
         return view('sales.show', compact('sale'));
     }
 
+    public function recordPayment(Request $request, Sale $sale): RedirectResponse
+    {
+        $data = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0.01'],
+        ]);
+
+        $balance = (float) $sale->total - (float) $sale->amount_paid;
+
+        if ($data['amount'] > $balance) {
+            return back()->with('error', 'Payment amount exceeds the outstanding balance of '.money($balance).'.');
+        }
+
+        $sale->increment('amount_paid', $data['amount']);
+
+        return back()->with('success', 'Payment recorded.');
+    }
+
     public function void(Request $request, Sale $sale, CheckoutService $checkoutService): RedirectResponse
     {
         if (! $request->user()->isManager()) {

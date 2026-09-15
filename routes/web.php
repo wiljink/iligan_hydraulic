@@ -5,6 +5,7 @@ use App\Http\Controllers\BrandController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\ImportController;
 use App\Http\Controllers\PosController;
 use App\Http\Controllers\ProductController;
@@ -33,6 +34,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/sales', [SaleController::class, 'index'])->name('sales.index');
     Route::get('/sales/{sale}', [SaleController::class, 'show'])->name('sales.show');
     Route::post('/sales/{sale}/void', [SaleController::class, 'void'])->name('sales.void');
+    Route::post('/sales/{sale}/record-payment', [SaleController::class, 'recordPayment'])->name('sales.record-payment');
 
     // Inventory
     Route::resource('products', ProductController::class)->except(['show']);
@@ -52,7 +54,14 @@ Route::middleware('auth')->group(function () {
         Route::get('/inventory/export', [ReportController::class, 'inventoryExport'])->name('inventory.export');
         Route::get('/products', [ReportController::class, 'products'])->name('products');
         Route::get('/products/export', [ReportController::class, 'productsExport'])->name('products.export');
+        Route::get('/profit-loss', [ReportController::class, 'profitLoss'])->name('profit-loss');
+        Route::get('/profit-loss/export', [ReportController::class, 'profitLossExport'])->name('profit-loss.export');
+        Route::get('/receivables', [ReportController::class, 'receivables'])->name('receivables');
+        Route::get('/receivables/export', [ReportController::class, 'receivablesExport'])->name('receivables.export');
     });
+
+    // Expenses
+    Route::resource('expenses', ExpenseController::class)->only(['index', 'store', 'update', 'destroy']);
 
     // Import
     Route::get('/imports', [ImportController::class, 'index'])->name('imports.index');

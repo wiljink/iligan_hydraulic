@@ -3,10 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Exports\ReportExport;
+use App\Models\Expense;
 use App\Models\Product;
 use App\Models\Sale;
+use App\Models\SaleItem;
 use App\Models\StockMovement;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -127,14 +130,139 @@ class ReportController extends Controller
         return Excel::download(new ReportExport($rows, $headings, 'Product Inventory'), 'products-report.xlsx');
     }
 
+    public function profitLoss(Request $request): View
+    {
+        [$from, $to] = $this->dateRange($request);
+
+        $figures = $this->profitLossFigures($from, $to);
+
+        $daily = Sale::where('status', 'completed')
+            ->whereBetween('created_at', [$from, $to])
+            ->selectRaw('DATE(created_at) as date, COALESCE(SUM(subtotal - discount),0) as net_sales, COALESCE(SUM(total),0) as total')
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get();
+
+        $expensesByCategory = Expense::whereBetween('expense_date', [$from->toDateString(), $to->toDateString()])
+            ->selectRaw('category, COALESCE(SUM(amount),0) as total')
+            ->groupBy('category')
+            ->orderByDesc('total')
+            ->get();
+
+        return view('reports.profit-loss', array_merge($figures, [
+            'from' => $from,
+            'to' => $to,
+            'daily' => $daily,
+            'expensesByCategory' => $expensesByCategory,
+        ]));
+    }
+
+    public function profitLossExport(Request $request): BinaryFileResponse
+    {
+        [$from, $to] = $this->dateRange($request);
+        $f = $this->profitLossFigures($from, $to);
+
+        $rows = [
+            ['Gross Sales', $f['grossSales']],
+            ['Discounts', -$f['discounts']],
+            ['Net Sales', $f['netSales']],
+            ['Cost of Goods Sold', -$f['cogs']],
+            ['Gross Profit', $f['grossProfit']],
+            ['Operating Expenses', -$f['expenses']],
+            ['Net Profit', $f['netProfit']],
+            ['', ''],
+            ['Sales Tax Collected (liability, not profit)', $f['tax']],
+        ];
+
+        $headings = ['Line Item', 'Amount'];
+
+        return Excel::download(
+            new ReportExport($rows, $headings, 'Profit & Loss'),
+            'profit-loss-'.$from->toDateString().'-to-'.$to->toDateString().'.xlsx'
+        );
+    }
+
+    private function profitLossFigures(Carbon $from, Carbon $to): array
+    {
+        $sales = Sale::where('status', 'completed')
+            ->whereBetween('created_at', [$from, $to])
+            ->selectRaw('COALESCE(SUM(subtotal),0) as gross_sales, COALESCE(SUM(discount),0) as discounts, COALESCE(SUM(tax),0) as tax')
+            ->first();
+
+        $cogs = (float) SaleItem::join('sales', 'sales.id', '=', 'sale_items.sale_id')
+            ->where('sales.status', 'completed')
+            ->whereBetween('sales.created_at', [$from, $to])
+            ->selectRaw('COALESCE(SUM(sale_items.cost_price * sale_items.quantity),0) as cogs')
+            ->value('cogs');
+
+        $expenses = (float) Expense::whereBetween('expense_date', [$from->toDateString(), $to->toDateString()])->sum('amount');
+
+        $grossSales = (float) $sales->gross_sales;
+        $discounts = (float) $sales->discounts;
+        $netSales = $grossSales - $discounts;
+        $grossProfit = $netSales - $cogs;
+        $netProfit = $grossProfit - $expenses;
+
+        return [
+            'grossSales' => $grossSales,
+            'discounts' => $discounts,
+            'netSales' => $netSales,
+            'cogs' => $cogs,
+            'grossProfit' => $grossProfit,
+            'expenses' => $expenses,
+            'netProfit' => $netProfit,
+            'tax' => (float) $sales->tax,
+        ];
+    }
+
+    public function receivables(Request $request): View
+    {
+        $query = Sale::with(['customer', 'user'])
+            ->where('status', 'completed')
+            ->where('payment_method', 'credit')
+            ->whereColumn('amount_paid', '<', 'total')
+            ->when($request->filled('customer_id'), fn ($q) => $q->where('customer_id', $request->get('customer_id')));
+
+        $totalOutstanding = (clone $query)->get()->sum(fn (Sale $s) => $s->total - $s->amount_paid);
+
+        $sales = $query->orderBy('created_at')->paginate(25)->withQueryString();
+
+        $customers = \App\Models\Customer::orderBy('name')->get(['id', 'name']);
+
+        return view('reports.receivables', compact('sales', 'totalOutstanding', 'customers'));
+    }
+
+    public function receivablesExport(): BinaryFileResponse
+    {
+        $rows = Sale::with(['customer', 'user'])
+            ->where('status', 'completed')
+            ->where('payment_method', 'credit')
+            ->whereColumn('amount_paid', '<', 'total')
+            ->orderBy('created_at')
+            ->get()
+            ->map(fn (Sale $s) => [
+                $s->invoice_number,
+                $s->created_at->format('Y-m-d'),
+                $s->customer?->name ?? 'Walk-in',
+                (float) $s->total,
+                (float) $s->amount_paid,
+                (float) ($s->total - $s->amount_paid),
+                (int) $s->created_at->diffInDays(),
+            ])->toArray();
+
+        $headings = ['Invoice #', 'Date', 'Customer', 'Total', 'Paid', 'Balance Due', 'Days Outstanding'];
+
+        return Excel::download(new ReportExport($rows, $headings, 'Accounts Receivable'), 'accounts-receivable.xlsx');
+    }
+
     private function dateRange(Request $request): array
     {
         $from = $request->filled('from')
-            ? \Illuminate\Support\Carbon::parse($request->get('from'))->startOfDay()
+            ? Carbon::parse($request->get('from'))->startOfDay()
             : now()->startOfMonth();
 
         $to = $request->filled('to')
-            ? \Illuminate\Support\Carbon::parse($request->get('to'))->endOfDay()
+            ? Carbon::parse($request->get('to'))->endOfDay()
             : now()->endOfDay();
 
         return [$from, $to];

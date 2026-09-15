@@ -4,7 +4,10 @@ namespace Database\Seeders;
 
 use App\Models\Brand;
 use App\Models\Category;
+use App\Models\Customer;
+use App\Models\Expense;
 use App\Models\Product;
+use App\Models\Sale;
 use App\Models\Setting;
 use App\Models\StockMovement;
 use App\Models\Supplier;
@@ -15,14 +18,14 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        User::create([
+        $admin = User::create([
             'name' => 'Admin',
             'email' => 'admin@iliganhydraulics.test',
             'password' => 'password',
             'role' => User::ROLE_ADMIN,
         ]);
 
-        User::create([
+        $manager = User::create([
             'name' => 'Store Manager',
             'email' => 'manager@iliganhydraulics.test',
             'password' => 'password',
@@ -113,6 +116,68 @@ class DatabaseSeeder extends Seeder
             ]);
 
             $product->recordMovement(StockMovement::TYPE_OPENING, $data['stock'], 'Initial catalog seed');
+        }
+
+        $expenseSamples = [
+            ['days' => 25, 'category' => 'Rent', 'description' => 'Shop rent - this month', 'amount' => 15000],
+            ['days' => 20, 'category' => 'Utilities', 'description' => 'Electricity bill', 'amount' => 3200],
+            ['days' => 18, 'category' => 'Salaries & Wages', 'description' => 'Staff wages - 1st half', 'amount' => 12000],
+            ['days' => 10, 'category' => 'Fuel & Transportation', 'description' => 'Delivery van fuel', 'amount' => 1800],
+            ['days' => 5, 'category' => 'Repairs & Maintenance', 'description' => 'Compressor servicing', 'amount' => 2500],
+            ['days' => 2, 'category' => 'Office Supplies', 'description' => 'Receipt paper, ink', 'amount' => 650],
+        ];
+
+        foreach ($expenseSamples as $expense) {
+            Expense::create([
+                'expense_date' => now()->subDays($expense['days'])->toDateString(),
+                'category' => $expense['category'],
+                'description' => $expense['description'],
+                'amount' => $expense['amount'],
+                'user_id' => $manager->id,
+            ]);
+        }
+
+        $customer = Customer::create([
+            'name' => 'Roberto Dela Cruz',
+            'phone' => '0917-555-0101',
+            'vehicle_info' => 'Isuzu Elf 2019',
+        ]);
+
+        $creditProduct = Product::where('part_number', 'GP-20CC')->first();
+        if ($creditProduct) {
+            $creditQty = 1;
+            $lineTotal = $creditProduct->selling_price * $creditQty;
+            $tax = round($lineTotal * 0.12, 2);
+            $total = $lineTotal + $tax;
+
+            $sale = Sale::create([
+                'invoice_number' => 'INV-'.now()->subDays(12)->format('Ymd').'-0001',
+                'customer_id' => $customer->id,
+                'user_id' => $admin->id,
+                'subtotal' => $lineTotal,
+                'discount' => 0,
+                'tax' => $tax,
+                'total' => $total,
+                'amount_paid' => round($total / 2, 2),
+                'change_due' => 0,
+                'payment_method' => 'credit',
+                'status' => 'completed',
+                'created_at' => now()->subDays(12),
+                'updated_at' => now()->subDays(12),
+            ]);
+
+            $sale->items()->create([
+                'product_id' => $creditProduct->id,
+                'product_name' => $creditProduct->name,
+                'product_sku' => $creditProduct->sku,
+                'quantity' => $creditQty,
+                'unit_price' => $creditProduct->selling_price,
+                'cost_price' => $creditProduct->cost_price,
+                'discount' => 0,
+                'subtotal' => $lineTotal,
+            ]);
+
+            $creditProduct->recordMovement(StockMovement::TYPE_SALE, -$creditQty, "Sale {$sale->invoice_number}", Sale::class, $sale->id);
         }
     }
 }

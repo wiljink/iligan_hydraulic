@@ -69,6 +69,18 @@
             <div class="flex justify-between"><span>Change</span><span>{{ money($sale->change_due) }}</span></div>
         </div>
 
+        @if (!$sale->isVoided() && $sale->payment_method === 'credit' && $sale->amount_paid < $sale->total)
+            @php $balance = $sale->total - $sale->amount_paid; @endphp
+            <div class="mt-4 border-t pt-4 print:hidden">
+                <p class="text-sm text-red-600 font-medium mb-2">Balance due: {{ money($balance) }}</p>
+                <form method="POST" action="{{ route('sales.record-payment', $sale) }}" class="flex items-center gap-2">
+                    @csrf
+                    <input type="number" step="0.01" min="0.01" max="{{ $balance }}" name="amount" value="{{ $balance }}" class="w-32 rounded-md border-gray-300 shadow-sm text-sm">
+                    <button type="submit" class="px-3 py-1.5 bg-gray-800 text-white text-sm rounded-md">Record Payment</button>
+                </form>
+            </div>
+        @endif
+
         <p class="text-center text-xs text-gray-400 mt-6">{{ setting('receipt_footer', 'Thank you for your business!') }}</p>
     </div>
 

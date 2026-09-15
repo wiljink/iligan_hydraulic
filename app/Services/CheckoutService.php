@@ -45,6 +45,7 @@ class CheckoutService
                     'product' => $product,
                     'quantity' => $quantity,
                     'unit_price' => $unitPrice,
+                    'cost_price' => (float) $product->cost_price,
                     'discount' => $discount,
                     'subtotal' => $lineSubtotal,
                 ];
@@ -85,6 +86,7 @@ class CheckoutService
                     'product_sku' => $line['product']->sku,
                     'quantity' => $line['quantity'],
                     'unit_price' => $line['unit_price'],
+                    'cost_price' => $line['cost_price'],
                     'discount' => $line['discount'],
                     'subtotal' => $line['subtotal'],
                 ]);
