@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="text-xl font-semibold text-gray-800">Point of Sale</h2>
+        <h2 class="text-xl font-semibold text-gray-800">Point of Sale <span class="text-sm font-normal text-gray-500">&middot; {{ \App\Models\Branch::current()?->name }}</span></h2>
     </x-slot>
 
     <div x-data="pos()" x-init="init()" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -12,7 +12,7 @@
                     x-model="search"
                     @keydown.enter.prevent="scan()"
                     @input.debounce.300ms="doSearch()"
-                    placeholder="Scan barcode or type product name / SKU..."
+                    placeholder="Scan barcode or type product name / SKU / part no. / OEM no..."
                     autofocus
                     class="w-full rounded-md border-gray-300 shadow-sm text-lg py-3"
                 >
@@ -21,7 +21,8 @@
                         <button type="button" @click="addItem(product)" class="w-full text-left px-4 py-2 hover:bg-orange-50 border-b last:border-0 flex justify-between text-sm">
                             <span>
                                 <span class="font-medium" x-text="product.name"></span>
-                                <span class="text-gray-400 block text-xs" x-text="product.sku + (product.barcode ? ' / ' + product.barcode : '')"></span>
+                                <span class="text-gray-400 block text-xs" x-text="product.sku + (product.barcode ? ' / ' + product.barcode : '') + (product.part_number ? ' / Part: ' + product.part_number : '')"></span>
+                                <span x-show="product.oem_number" class="text-gray-400 block text-xs truncate max-w-md" x-text="'OEM: ' + product.oem_number"></span>
                             </span>
                             <span class="text-right">
                                 <span class="block font-medium" x-text="currency(product.selling_price)"></span>
@@ -197,8 +198,14 @@ function pos() {
             try {
                 const res = await fetch(`{{ route('pos.lookup') }}?code=${encodeURIComponent(code)}`);
                 if (!res.ok) {
-                    this.errorMessage = 'Product not found for: ' + code;
-                    this.search = '';
+                    // Not a barcode/SKU: fall back to the text search (name, part no., OEM no.).
+                    await this.doSearch();
+                    if (this.searchResults.length === 1) {
+                        this.addItem(this.searchResults[0]);
+                    } else if (this.searchResults.length === 0) {
+                        this.errorMessage = 'Product not found for: ' + code;
+                        this.search = '';
+                    }
                     return;
                 }
                 const product = await res.json();

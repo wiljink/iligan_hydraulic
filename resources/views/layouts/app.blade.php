@@ -5,7 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>{{ isset($title) ? $title.' - ' : '' }}{{ config('app.name', 'Iligan Hydraulics POS') }}</title>
+        <title>{{ isset($title) ? $title.' - ' : '' }}{{ config('app.name', 'Osmena Hydraulic POS') }}</title>
 
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
@@ -17,7 +17,7 @@
             @include('layouts.navigation')
 
             <div class="flex-1 flex flex-col min-w-0">
-                <div class="lg:hidden flex items-center justify-between bg-gray-900 text-white px-4 py-3">
+                <div class="lg:hidden flex items-center justify-between bg-gray-900 text-white px-4 py-3 print:hidden">
                     <span class="font-semibold">{{ config('app.name') }}</span>
                     <button @click="mobileNavOpen = true" class="p-2">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
@@ -25,31 +25,31 @@
                 </div>
 
                 @isset($header)
-                    <header class="bg-white shadow-sm border-b">
+                    <header class="bg-white shadow-sm border-b print:hidden">
                         <div class="px-4 sm:px-6 lg:px-8 py-4">
                             {{ $header }}
                         </div>
                     </header>
                 @endisset
 
-                <main class="flex-1 p-4 sm:p-6 lg:p-8">
+                <main class="flex-1 p-4 sm:p-6 lg:p-8 print:p-0">
                     @if (session('success'))
-                        <div class="mb-4 rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800">
+                        <div class="mb-4 rounded-md bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-800 print:hidden">
                             {{ session('success') }}
                         </div>
                     @endif
                     @if (session('warning'))
-                        <div class="mb-4 rounded-md bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+                        <div class="mb-4 rounded-md bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800 print:hidden">
                             {{ session('warning') }}
                         </div>
                     @endif
                     @if (session('error'))
-                        <div class="mb-4 rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-800">
+                        <div class="mb-4 rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-800 print:hidden">
                             {{ session('error') }}
                         </div>
                     @endif
                     @if ($errors->any())
-                        <div class="mb-4 rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-800">
+                        <div class="mb-4 rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-800 print:hidden">
                             <ul class="list-disc list-inside">
                                 @foreach ($errors->all() as $error)
                                     <li>{{ $error }}</li>

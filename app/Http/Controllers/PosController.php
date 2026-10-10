@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Branch;
 use App\Models\Customer;
 use App\Models\Product;
 use App\Services\CheckoutService;
@@ -45,7 +46,7 @@ class PosController extends Controller
             'barcode' => $product->barcode,
             'unit' => $product->unit,
             'price' => (float) $product->selling_price,
-            'stock' => $product->current_stock,
+            'stock' => $product->stockAt(Branch::current()),
         ]);
     }
 
@@ -60,12 +61,17 @@ class PosController extends Controller
                     $q->where('name', 'like', $like)
                         ->orWhere('sku', 'like', $like)
                         ->orWhere('barcode', 'like', $like)
-                        ->orWhere('part_number', 'like', $like);
+                        ->orWhere('part_number', 'like', $like)
+                        ->orWhere('oem_number', 'like', $like);
                 });
             })
             ->orderBy('name')
             ->limit(25)
-            ->get(['id', 'name', 'sku', 'barcode', 'unit', 'selling_price', 'current_stock']);
+            ->select(['id', 'name', 'sku', 'barcode', 'part_number', 'oem_number', 'unit', 'selling_price'])
+            ->withBranchStock(Branch::current())
+            ->get()
+            // The POS screen reads current_stock; report what is on hand at this branch.
+            ->map(fn (Product $p) => [...$p->only(['id', 'name', 'sku', 'barcode', 'part_number', 'oem_number', 'unit', 'selling_price']), 'current_stock' => (int) $p->branch_stock]);
 
         return response()->json($products);
     }

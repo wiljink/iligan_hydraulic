@@ -22,10 +22,19 @@ class StockMovement extends Model
 
     public const TYPE_OPENING = 'opening';
 
+    public const TYPE_TRANSFER_OUT = 'transfer_out';
+
+    public const TYPE_TRANSFER_IN = 'transfer_in';
+
     protected $fillable = [
-        'product_id', 'type', 'quantity', 'balance_after',
+        'branch_id', 'product_id', 'type', 'quantity', 'balance_after',
         'reference_type', 'reference_id', 'note', 'user_id',
     ];
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
+    }
 
     public function product(): BelongsTo
     {

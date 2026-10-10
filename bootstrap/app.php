@@ -14,6 +14,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => \App\Http\Middleware\EnsureRole::class,
         ]);
+
+        // Biometric devices push punches without a session (see IclockController).
+        $middleware->validateCsrfTokens(except: ['iclock/*']);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

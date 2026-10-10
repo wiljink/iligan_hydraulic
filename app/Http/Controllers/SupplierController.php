@@ -20,10 +20,11 @@ class SupplierController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'contact_person' => ['nullable', 'string', 'max:255'],
+            'address' => ['nullable', 'string'],
+            'tin_number' => ['nullable', 'string', 'max:50'],
             'phone' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:255'],
-            'address' => ['nullable', 'string'],
+            'contact_person' => ['nullable', 'string', 'max:255'],
         ]);
 
         Supplier::create($data);
@@ -35,10 +36,11 @@ class SupplierController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'contact_person' => ['nullable', 'string', 'max:255'],
+            'address' => ['nullable', 'string'],
+            'tin_number' => ['nullable', 'string', 'max:50'],
             'phone' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:255'],
-            'address' => ['nullable', 'string'],
+            'contact_person' => ['nullable', 'string', 'max:255'],
         ]);
 
         $supplier->update($data);

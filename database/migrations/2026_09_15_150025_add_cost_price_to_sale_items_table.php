@@ -14,9 +14,15 @@ return new class extends Migration
         });
 
         // Backfill existing rows with the product's current cost price (best effort for historical data).
-        DB::table('sale_items')
-            ->join('products', 'products.id', '=', 'sale_items.product_id')
-            ->update(['sale_items.cost_price' => DB::raw('products.cost_price')]);
+        if (DB::table('sale_items')->exists()) {
+            if (DB::getDriverName() === 'sqlite') {
+                DB::statement('UPDATE sale_items SET cost_price = COALESCE((SELECT cost_price FROM products WHERE products.id = sale_items.product_id), 0)');
+            } else {
+                DB::table('sale_items')
+                    ->join('products', 'products.id', '=', 'sale_items.product_id')
+                    ->update(['sale_items.cost_price' => DB::raw('products.cost_price')]);
+            }
+        }
     }
 
     public function down(): void

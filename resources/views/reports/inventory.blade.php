@@ -9,6 +9,15 @@
     <div class="bg-white rounded-lg shadow-sm p-5 mb-6">
         <form method="GET" class="flex flex-wrap items-end gap-3">
             <div>
+                <label class="text-xs text-gray-500 block">Branch</label>
+                <select name="branch_id" class="rounded-md border-gray-300 shadow-sm text-sm">
+                    <option value="">All Branches</option>
+                    @foreach ($branches as $b)
+                        <option value="{{ $b->id }}" @selected(request('branch_id') == $b->id)>{{ $b->name }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div>
                 <label class="text-xs text-gray-500 block">Product</label>
                 <select name="product_id" class="rounded-md border-gray-300 shadow-sm text-sm">
                     <option value="">All Products</option>
@@ -21,8 +30,8 @@
                 <label class="text-xs text-gray-500 block">Type</label>
                 <select name="type" class="rounded-md border-gray-300 shadow-sm text-sm">
                     <option value="">All Types</option>
-                    @foreach (['purchase', 'sale', 'adjustment', 'return', 'wastage', 'opening'] as $type)
-                        <option value="{{ $type }}" @selected(request('type') === $type)>{{ ucfirst($type) }}</option>
+                    @foreach (['purchase', 'sale', 'adjustment', 'return', 'wastage', 'opening', 'transfer_out', 'transfer_in'] as $type)
+                        <option value="{{ $type }}" @selected(request('type') === $type)>{{ ucfirst(str_replace('_', ' ', $type)) }}</option>
                     @endforeach
                 </select>
             </div>
@@ -35,6 +44,7 @@
             <thead>
                 <tr class="text-left text-gray-500 border-b">
                     <th class="py-2">Date</th>
+                    <th class="py-2">Branch</th>
                     <th class="py-2">Product</th>
                     <th class="py-2">Type</th>
                     <th class="py-2 text-right">Qty Change</th>
@@ -47,15 +57,16 @@
                 @forelse ($movements as $movement)
                     <tr class="border-b last:border-0">
                         <td class="py-2">{{ $movement->created_at->format('M d, Y g:ia') }}</td>
+                        <td class="py-2">{{ $movement->branch?->name }}</td>
                         <td class="py-2">{{ $movement->product?->name }}</td>
-                        <td class="py-2 capitalize">{{ $movement->type }}</td>
+                        <td class="py-2 capitalize">{{ str_replace('_', ' ', $movement->type) }}</td>
                         <td class="py-2 text-right {{ $movement->quantity < 0 ? 'text-red-600' : 'text-green-600' }}">{{ $movement->quantity > 0 ? '+' : '' }}{{ $movement->quantity }}</td>
                         <td class="py-2 text-right">{{ $movement->balance_after }}</td>
                         <td class="py-2">{{ $movement->user?->name }}</td>
                         <td class="py-2 text-gray-500">{{ $movement->note }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="7" class="py-6 text-center text-gray-400">No stock movements found.</td></tr>
+                    <tr><td colspan="8" class="py-6 text-center text-gray-400">No stock movements found.</td></tr>
                 @endforelse
             </tbody>
         </table>

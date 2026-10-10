@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exports\ReportExport;
+use App\Models\Branch;
 use App\Models\Expense;
 use App\Models\Product;
 use App\Models\Sale;
@@ -46,6 +47,7 @@ class ReportController extends Controller
                 $s->invoice_number,
                 $s->created_at->format('Y-m-d H:i'),
                 $s->customer?->name ?? 'Walk-in',
+                $s->customer?->tin_number ?? '',
                 $s->user?->name,
                 (float) $s->subtotal,
                 (float) $s->discount,
@@ -62,7 +64,8 @@ class ReportController extends Controller
 
     public function inventory(Request $request): View
     {
-        $movements = StockMovement::with(['product', 'user'])
+        $movements = StockMovement::with(['branch', 'product', 'user'])
+            ->when($request->filled('branch_id'), fn ($q) => $q->where('branch_id', $request->get('branch_id')))
             ->when($request->filled('product_id'), fn ($q) => $q->where('product_id', $request->get('product_id')))
             ->when($request->filled('type'), fn ($q) => $q->where('type', $request->get('type')))
             ->latest()
@@ -71,17 +74,20 @@ class ReportController extends Controller
 
         $products = Product::orderBy('name')->get(['id', 'name']);
 
-        return view('reports.inventory', compact('movements', 'products'));
+        $branches = Branch::orderBy('name')->get();
+
+        return view('reports.inventory', compact('movements', 'products', 'branches'));
     }
 
     public function inventoryExport(): BinaryFileResponse
     {
-        $rows = StockMovement::with(['product', 'user'])
+        $rows = StockMovement::with(['branch', 'product', 'user'])
             ->latest()
             ->limit(5000)
             ->get()
             ->map(fn (StockMovement $m) => [
                 $m->created_at->format('Y-m-d H:i'),
+                $m->branch?->name,
                 $m->product?->name,
                 $m->product?->sku,
                 $m->type,
@@ -91,7 +97,7 @@ class ReportController extends Controller
                 $m->note,
             ])->toArray();
 
-        $headings = ['Date', 'Product', 'SKU', 'Type', 'Qty Change', 'Balance After', 'User', 'Note'];
+        $headings = ['Date', 'Branch', 'Product', 'SKU', 'Type', 'Qty Change', 'Branch Balance After', 'User', 'Note'];
 
         return Excel::download(new ReportExport($rows, $headings, 'Inventory Movements'), 'inventory-report.xlsx');
     }
@@ -220,10 +226,10 @@ class ReportController extends Controller
         $query = Sale::with(['customer', 'user'])
             ->where('status', 'completed')
             ->where('payment_method', 'credit')
-            ->whereColumn('amount_paid', '<', 'total')
+            ->whereRaw(Sale::BALANCE_SQL.' > 0')
             ->when($request->filled('customer_id'), fn ($q) => $q->where('customer_id', $request->get('customer_id')));
 
-        $totalOutstanding = (clone $query)->get()->sum(fn (Sale $s) => $s->total - $s->amount_paid);
+        $totalOutstanding = (clone $query)->get()->sum(fn (Sale $s) => $s->balance());
 
         $sales = $query->orderBy('created_at')->paginate(25)->withQueryString();
 
@@ -237,20 +243,21 @@ class ReportController extends Controller
         $rows = Sale::with(['customer', 'user'])
             ->where('status', 'completed')
             ->where('payment_method', 'credit')
-            ->whereColumn('amount_paid', '<', 'total')
+            ->whereRaw(Sale::BALANCE_SQL.' > 0')
             ->orderBy('created_at')
             ->get()
             ->map(fn (Sale $s) => [
                 $s->invoice_number,
                 $s->created_at->format('Y-m-d'),
                 $s->customer?->name ?? 'Walk-in',
+                $s->customer?->tin_number ?? '',
                 (float) $s->total,
                 (float) $s->amount_paid,
-                (float) ($s->total - $s->amount_paid),
+                (float) $s->balance(),
                 (int) $s->created_at->diffInDays(),
             ])->toArray();
 
-        $headings = ['Invoice #', 'Date', 'Customer', 'Total', 'Paid', 'Balance Due', 'Days Outstanding'];
+        $headings = ['Invoice #', 'Date', 'Customer', 'TIN', 'Total', 'Paid', 'Balance Due', 'Days Outstanding'];
 
         return Excel::download(new ReportExport($rows, $headings, 'Accounts Receivable'), 'accounts-receivable.xlsx');
     }

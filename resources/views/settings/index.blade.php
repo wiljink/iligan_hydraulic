@@ -9,11 +9,15 @@
 
             <div>
                 <x-input-label for="company_name" value="Company Name *" />
-                <x-text-input id="company_name" name="company_name" class="mt-1 block w-full" value="{{ old('company_name', $settings['company_name'] ?? 'Iligan Hydraulics & Auto Parts') }}" required />
+                <x-text-input id="company_name" name="company_name" class="mt-1 block w-full" value="{{ old('company_name', $settings['company_name'] ?? 'Osmena Hydraulic') }}" required />
             </div>
             <div>
                 <x-input-label for="company_address" value="Address" />
                 <x-text-input id="company_address" name="company_address" class="mt-1 block w-full" value="{{ old('company_address', $settings['company_address'] ?? '') }}" />
+            </div>
+            <div>
+                <x-input-label for="company_tagline" value="Tagline (printed under the letterhead)" />
+                <x-text-input id="company_tagline" name="company_tagline" class="mt-1 block w-full" value="{{ old('company_tagline', $settings['company_tagline'] ?? '') }}" placeholder="e.g. * FITTINGS * INDUSTRIAL HOSES * SEIKEN RUBBER CUPS * BRAKE BONDING *" />
             </div>
             <div class="grid grid-cols-2 gap-4">
                 <div>
@@ -50,6 +54,12 @@
             <div>
                 <x-input-label for="receipt_footer" value="Receipt Footer Message" />
                 <textarea id="receipt_footer" name="receipt_footer" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">{{ old('receipt_footer', $settings['receipt_footer'] ?? 'Thank you for your business!') }}</textarea>
+            </div>
+
+            <div>
+                <x-input-label for="payroll_days_per_month" value="Payroll: working days per month" />
+                <x-text-input id="payroll_days_per_month" type="number" step="0.01" min="1" max="31" name="payroll_days_per_month" class="mt-1 block w-40" value="{{ old('payroll_days_per_month', $settings['payroll_days_per_month'] ?? 26) }}" />
+                <p class="mt-1 text-xs text-gray-400">Daily rate &times; this = monthly salary used for SSS, PhilHealth and Pag-IBIG. 26 for a 6-day week, 22 for a 5-day week.</p>
             </div>
 
             <x-primary-button>Save Settings</x-primary-button>

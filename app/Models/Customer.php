@@ -10,7 +10,7 @@ class Customer extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'phone', 'email', 'address', 'vehicle_info', 'credit_balance'];
+    protected $fillable = ['name', 'address', 'tin_number', 'phone', 'email', 'contact_person', 'vehicle_info', 'credit_balance'];
 
     protected $casts = [
         'credit_balance' => 'decimal:2',
@@ -19,5 +19,15 @@ class Customer extends Model
     public function sales(): HasMany
     {
         return $this->hasMany(Sale::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function creditMemos(): HasMany
+    {
+        return $this->hasMany(CreditMemo::class);
     }
 }

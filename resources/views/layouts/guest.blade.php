@@ -5,7 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>{{ config('app.name', 'Iligan Hydraulics POS') }}</title>
+        <title>{{ config('app.name', 'Osmena Hydraulic POS') }}</title>
 
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
@@ -29,8 +29,8 @@
                     <div class="flex items-center gap-3">
                         <span class="flex items-center justify-center w-11 h-11 rounded-xl bg-orange-500/20 border border-orange-400/30 text-orange-400 text-2xl">&#9881;</span>
                         <div>
-                            <p class="text-white font-bold leading-tight">Iligan Hydraulics</p>
-                            <p class="text-slate-400 text-sm leading-tight">&amp; Auto Parts</p>
+                            <p class="text-white font-bold leading-tight">Osmena Hydraulic</p>
+                            <p class="text-slate-400 text-sm leading-tight">Point of Sale</p>
                         </div>
                     </div>
 
@@ -94,8 +94,8 @@
                     <div class="flex lg:hidden items-center justify-center gap-3 mb-8">
                         <span class="flex items-center justify-center w-10 h-10 rounded-xl bg-orange-100 text-orange-600 text-xl">&#9881;</span>
                         <div class="text-center">
-                            <p class="font-bold text-gray-800 leading-tight">Iligan Hydraulics</p>
-                            <p class="text-gray-500 text-xs leading-tight">&amp; Auto Parts POS</p>
+                            <p class="font-bold text-gray-800 leading-tight">Osmena Hydraulic</p>
+                            <p class="text-gray-500 text-xs leading-tight">Point of Sale</p>
                         </div>
                     </div>
 

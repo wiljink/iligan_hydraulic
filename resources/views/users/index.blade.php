@@ -28,6 +28,16 @@
                         <option value="admin">Admin</option>
                     </select>
                 </div>
+                <div>
+                    <x-input-label for="branch_id" value="Branch" />
+                    <select id="branch_id" name="branch_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
+                        <option value="">All branches (can switch)</option>
+                        @foreach ($branches as $b)
+                            <option value="{{ $b->id }}">{{ $b->label }}</option>
+                        @endforeach
+                    </select>
+                    <p class="text-xs text-gray-400 mt-1">Users assigned to a branch can only work in that branch (admins can always switch).</p>
+                </div>
                 <x-primary-button>Add User</x-primary-button>
             </form>
         </div>
@@ -39,6 +49,7 @@
                         <th class="py-2">Name</th>
                         <th class="py-2">Email</th>
                         <th class="py-2">Role</th>
+                        <th class="py-2">Branch</th>
                         <th class="py-2">Active</th>
                         <th class="py-2 text-right">Actions</th>
                     </tr>
@@ -49,6 +60,7 @@
                             <td class="py-2">{{ $user->name }}</td>
                             <td class="py-2">{{ $user->email }}</td>
                             <td class="py-2 capitalize">{{ $user->role }}</td>
+                            <td class="py-2">{{ $user->branch?->name ?? 'All' }}</td>
                             <td class="py-2">{{ $user->is_active ? 'Yes' : 'No' }}</td>
                             <td class="py-2 text-right space-x-2 whitespace-nowrap">
                                 <button type="button" @click="editing = {{ $user->id }}" class="text-blue-600 hover:underline">Edit</button>
@@ -61,7 +73,7 @@
                             </td>
                         </tr>
                         <tr x-show="editing === {{ $user->id }}" x-cloak>
-                            <td colspan="5" class="py-2">
+                            <td colspan="6" class="py-2">
                                 <form method="POST" action="{{ route('users.update', $user) }}" class="grid grid-cols-2 gap-2 items-center">
                                     @csrf @method('PUT')
                                     <input type="text" name="name" value="{{ $user->name }}" placeholder="Name" class="rounded-md border-gray-300 shadow-sm text-sm" required>
@@ -71,6 +83,12 @@
                                         <option value="cashier" @selected($user->role === 'cashier')>Cashier</option>
                                         <option value="manager" @selected($user->role === 'manager')>Manager</option>
                                         <option value="admin" @selected($user->role === 'admin')>Admin</option>
+                                    </select>
+                                    <select name="branch_id" class="rounded-md border-gray-300 shadow-sm text-sm">
+                                        <option value="">All branches (can switch)</option>
+                                        @foreach ($branches as $b)
+                                            <option value="{{ $b->id }}" @selected($user->branch_id === $b->id)>{{ $b->label }}</option>
+                                        @endforeach
                                     </select>
                                     <label class="flex items-center gap-2 text-sm">
                                         <input type="checkbox" name="is_active" value="1" @checked($user->is_active) class="rounded border-gray-300"> Active
@@ -83,7 +101,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="5" class="py-4 text-center text-gray-400">No users yet.</td></tr>
+                        <tr><td colspan="6" class="py-4 text-center text-gray-400">No users yet.</td></tr>
                     @endforelse
                 </tbody>
             </table>

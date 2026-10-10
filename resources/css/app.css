@@ -3,3 +3,17 @@
 @tailwind utilities;
 
 [x-cloak] { display: none !important; }
+
+@media print {
+    .print\:hidden,
+    aside,
+    header,
+    nav {
+        display: none !important;
+    }
+
+    body {
+        background: #fff !important;
+        color: #000 !important;
+    }
+}

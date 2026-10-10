@@ -9,13 +9,51 @@
         <x-input-label for="sku" value="SKU (leave blank to auto-generate)" />
         <x-text-input id="sku" name="sku" class="mt-1 block w-full font-mono" value="{{ old('sku', $product?->sku) }}" />
     </div>
-    <div>
-        <x-input-label for="barcode" value="Barcode" />
-        <x-text-input id="barcode" name="barcode" class="mt-1 block w-full font-mono" value="{{ old('barcode', $product?->barcode) }}" />
+    <div x-data="{
+        barcodeValue: '{{ old('barcode', $product?->barcode) }}',
+        generating: false,
+        async generateBarcode() {
+            this.generating = true;
+            try {
+                const res = await fetch('{{ route('products.generate-barcode') }}');
+                const data = await res.json();
+                if (data.barcode) {
+                    this.barcodeValue = data.barcode;
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                this.generating = false;
+            }
+        }
+    }">
+        <div class="flex items-center justify-between">
+            <x-input-label for="barcode" value="Barcode" />
+            <button
+                type="button"
+                @click="generateBarcode()"
+                :disabled="generating"
+                class="text-xs text-orange-600 hover:text-orange-700 font-medium inline-flex items-center gap-1 focus:outline-none cursor-pointer"
+            >
+                <span x-show="!generating">⚡ Auto-Generate</span>
+                <span x-show="generating" x-cloak>Generating...</span>
+            </button>
+        </div>
+        <div class="mt-1 flex rounded-md shadow-sm">
+            <input
+                id="barcode"
+                name="barcode"
+                type="text"
+                x-model="barcodeValue"
+                placeholder="Leave blank to use SKU or auto-generate"
+                class="block w-full rounded-md border-gray-300 bg-white text-gray-900 font-mono text-sm focus:border-orange-500 focus:ring-orange-500"
+            />
+        </div>
+        <p class="text-[11px] text-gray-500 mt-1">Supports standard 13-digit EAN, UPC, or custom barcodes. If empty, SKU will be used.</p>
     </div>
     <div>
         <x-input-label for="unit" value="Unit *" />
-        <select id="unit" name="unit" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm" required>
+        <select id="unit" name="unit" class="mt-1 block w-full rounded-md border-gray-300 bg-white text-gray-900 shadow-sm text-sm focus:border-orange-500 focus:ring-orange-500" required>
             @foreach ($units as $unit)
                 <option value="{{ $unit }}" @selected(old('unit', $product?->unit ?? 'pcs') === $unit)>{{ $unit }}</option>
             @endforeach
@@ -26,8 +64,8 @@
         <x-text-input id="part_number" name="part_number" class="mt-1 block w-full" value="{{ old('part_number', $product?->part_number) }}" />
     </div>
     <div>
-        <x-input-label for="oem_number" value="OEM Number" />
-        <x-text-input id="oem_number" name="oem_number" class="mt-1 block w-full" value="{{ old('oem_number', $product?->oem_number) }}" />
+        <x-input-label for="oem_number" value="OEM Number(s)" />
+        <textarea id="oem_number" name="oem_number" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm" placeholder="Separate multiple numbers with commas">{{ old('oem_number', $product?->oem_number) }}</textarea>
     </div>
     <div class="md:col-span-2">
         <x-input-label for="fitment" value="Fitment / Compatible Vehicles" />
@@ -35,7 +73,7 @@
     </div>
     <div>
         <x-input-label for="category_id" value="Category" />
-        <select id="category_id" name="category_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
+        <select id="category_id" name="category_id" class="mt-1 block w-full rounded-md border-gray-300 bg-white text-gray-900 shadow-sm text-sm focus:border-orange-500 focus:ring-orange-500">
             <option value="">-- None --</option>
             @foreach ($categories as $category)
                 <option value="{{ $category->id }}" @selected(old('category_id', $product?->category_id) == $category->id)>{{ $category->name }}</option>
@@ -44,7 +82,7 @@
     </div>
     <div>
         <x-input-label for="brand_id" value="Brand" />
-        <select id="brand_id" name="brand_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
+        <select id="brand_id" name="brand_id" class="mt-1 block w-full rounded-md border-gray-300 bg-white text-gray-900 shadow-sm text-sm focus:border-orange-500 focus:ring-orange-500">
             <option value="">-- None --</option>
             @foreach ($brands as $brand)
                 <option value="{{ $brand->id }}" @selected(old('brand_id', $product?->brand_id) == $brand->id)>{{ $brand->name }}</option>
@@ -53,7 +91,7 @@
     </div>
     <div>
         <x-input-label for="supplier_id" value="Supplier" />
-        <select id="supplier_id" name="supplier_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">
+        <select id="supplier_id" name="supplier_id" class="mt-1 block w-full rounded-md border-gray-300 bg-white text-gray-900 shadow-sm text-sm focus:border-orange-500 focus:ring-orange-500">
             <option value="">-- None --</option>
             @foreach ($suppliers as $supplier)
                 <option value="{{ $supplier->id }}" @selected(old('supplier_id', $product?->supplier_id) == $supplier->id)>{{ $supplier->name }}</option>
@@ -64,13 +102,38 @@
         <x-input-label for="shelf_location" value="Shelf Location" />
         <x-text-input id="shelf_location" name="shelf_location" class="mt-1 block w-full" value="{{ old('shelf_location', $product?->shelf_location) }}" placeholder="e.g. A1-01" />
     </div>
-    <div>
-        <x-input-label for="cost_price" value="Cost Price *" />
-        <x-text-input id="cost_price" type="number" step="0.01" min="0" name="cost_price" class="mt-1 block w-full" value="{{ old('cost_price', $product?->cost_price ?? 0) }}" required />
-    </div>
-    <div>
-        <x-input-label for="selling_price" value="Selling Price *" />
-        <x-text-input id="selling_price" type="number" step="0.01" min="0" name="selling_price" class="mt-1 block w-full" value="{{ old('selling_price', $product?->selling_price ?? 0) }}" required />
+    @php
+        $initialCost = (float) old('cost_price', $product?->cost_price ?? 0);
+        $initialSelling = (float) old('selling_price', $product?->selling_price ?? 0);
+        $initialMarkup = $initialCost > 0 && $initialSelling > 0 ? round(($initialSelling / $initialCost - 1) * 100, 2) : '';
+    @endphp
+    {{-- Selling price = cost + markup %. Editing the selling price directly back-computes the markup. --}}
+    <div class="md:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4" x-data="{
+        cost: '{{ $initialCost }}',
+        markup: '{{ $initialMarkup }}',
+        selling: '{{ $initialSelling }}',
+        fromMarkup() {
+            const cost = parseFloat(this.cost), markup = parseFloat(this.markup);
+            if (!isNaN(cost) && !isNaN(markup)) this.selling = (cost * (1 + markup / 100)).toFixed(2);
+        },
+        fromSelling() {
+            const cost = parseFloat(this.cost), selling = parseFloat(this.selling);
+            this.markup = cost > 0 && !isNaN(selling) ? (+((selling / cost - 1) * 100).toFixed(2)).toString() : '';
+        },
+    }">
+        <div>
+            <x-input-label for="cost_price" value="Cost Price *" />
+            <x-text-input id="cost_price" type="number" step="0.01" min="0" name="cost_price" class="mt-1 block w-full" x-model="cost" @input="fromMarkup()" required />
+        </div>
+        <div>
+            <x-input-label for="markup_percent" value="Markup (%)" />
+            <x-text-input id="markup_percent" type="number" step="0.01" class="mt-1 block w-full" x-model="markup" @input="fromMarkup()" placeholder="e.g. 30" />
+            <p class="mt-1 text-xs text-gray-400">Added to the cost to get the selling price.</p>
+        </div>
+        <div>
+            <x-input-label for="selling_price" value="Selling Price *" />
+            <x-text-input id="selling_price" type="number" step="0.01" min="0" name="selling_price" class="mt-1 block w-full" x-model="selling" @input="fromSelling()" required />
+        </div>
     </div>
     <div>
         <x-input-label for="reorder_level" value="Reorder Level *" />
@@ -84,7 +147,7 @@
     @endif
     <div class="md:col-span-2">
         <x-input-label for="description" value="Description" />
-        <textarea id="description" name="description" rows="2" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm text-sm">{{ old('description', $product?->description) }}</textarea>
+        <textarea id="description" name="description" rows="2" class="mt-1 block w-full rounded-md border-gray-300 bg-white text-gray-900 shadow-sm text-sm focus:border-orange-500 focus:ring-orange-500">{{ old('description', $product?->description) }}</textarea>
     </div>
     @if ($product)
         <div class="flex items-center gap-2">

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Branch;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\StockMovement;
@@ -20,7 +21,9 @@ class CheckoutService
             throw new InvalidArgumentException('Cannot checkout an empty cart.');
         }
 
-        return DB::transaction(function () use ($items, $options) {
+        $branchId = $options['branch_id'] ?? Branch::current()?->id;
+
+        return DB::transaction(function () use ($items, $options, $branchId) {
             $subtotal = 0;
             $lineData = [];
 
@@ -32,8 +35,9 @@ class CheckoutService
                     throw new InvalidArgumentException("Invalid quantity for {$product->name}.");
                 }
 
-                if ($product->current_stock < $quantity) {
-                    throw new InvalidArgumentException("Insufficient stock for {$product->name}. Available: {$product->current_stock}.");
+                $available = $branchId ? $product->stockAt($branchId) : $product->current_stock;
+                if ($available < $quantity) {
+                    throw new InvalidArgumentException("Insufficient stock for {$product->name} at this branch. Available: {$available}.");
                 }
 
                 $unitPrice = (float) ($item['unit_price'] ?? $product->selling_price);
@@ -65,7 +69,8 @@ class CheckoutService
             }
 
             $sale = Sale::create([
-                'invoice_number' => Sale::generateInvoiceNumber(),
+                'invoice_number' => Sale::generateInvoiceNumber($options['payment_method'] ?? 'cash'),
+                'branch_id' => $branchId,
                 'customer_id' => $options['customer_id'] ?? null,
                 'user_id' => Auth::id(),
                 'subtotal' => $subtotal,
@@ -96,8 +101,14 @@ class CheckoutService
                     -$line['quantity'],
                     "Sale {$sale->invoice_number}",
                     Sale::class,
-                    $sale->id
+                    $sale->id,
+                    $branchId
                 );
+            }
+
+            // A down payment on a charge invoice gets its own Collection Receipt.
+            if ($sale->isCharge() && $amountPaid > 0) {
+                app(ReceivablesService::class)->createPayment($sale, min($amountPaid, $total), 'cash', $sale->payment_reference);
             }
 
             return $sale->load('items');
@@ -109,6 +120,10 @@ class CheckoutService
         if ($sale->isVoided()) {
             throw new InvalidArgumentException('Sale is already voided.');
         }
+        if ($sale->creditMemos()->exists()) {
+            // Returned items are already back in stock; voiding would count them twice.
+            throw new InvalidArgumentException('This sale has returns (credit memos) and can no longer be voided.');
+        }
 
         return DB::transaction(function () use ($sale, $reason) {
             foreach ($sale->items as $item) {
@@ -119,7 +134,8 @@ class CheckoutService
                         $item->quantity,
                         "Void {$sale->invoice_number}",
                         Sale::class,
-                        $sale->id
+                        $sale->id,
+                        $sale->branch_id
                     );
                 }
             }

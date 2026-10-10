@@ -2,11 +2,14 @@
 
 namespace Database\Seeders;
 
+use App\Models\AccountPayable;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Customer;
 use App\Models\Expense;
 use App\Models\Product;
+use App\Models\Purchase;
+use App\Models\PurchaseItem;
 use App\Models\Sale;
 use App\Models\Setting;
 use App\Models\StockMovement;
@@ -39,8 +42,8 @@ class DatabaseSeeder extends Seeder
             'role' => User::ROLE_CASHIER,
         ]);
 
-        Setting::set('company_name', 'Iligan Hydraulics & Auto Parts');
-        Setting::set('company_address', 'National Highway, Iligan City, Lanao del Norte');
+        Setting::set('company_name', 'Osmena Hydraulic');
+        Setting::set('company_address', 'Door A, S & A building, Osmena St., Cagayan de Oro City');
         Setting::set('company_phone', '(063) 000-0000');
         Setting::set('company_tin', '');
         Setting::set('currency_symbol', '₱');
@@ -52,14 +55,11 @@ class DatabaseSeeder extends Seeder
         $categories = [
             'Hydraulic Hoses' => 'Hoses',
             'Hydraulic Fittings' => 'Fittings',
-            'Hydraulic Pumps' => 'Pumps',
             'Hydraulic Cylinders' => 'Cylinders',
             'Seals & O-Rings' => 'Seals',
             'Filters' => 'Filters',
-            'Engine Oil & Lubricants' => 'Lubricants',
             'Brake Parts' => 'Brakes',
             'Belts & Bearings' => 'Belts',
-            'Electrical Parts' => 'Electrical',
         ];
 
         $categoryModels = [];
@@ -100,12 +100,15 @@ class DatabaseSeeder extends Seeder
         ];
 
         foreach ($products as $index => $data) {
+            $prefix = '200000000'.str_pad((string) ($index + 1), 3, '0', STR_PAD_LEFT);
+            $checkDigit = \App\Services\BarcodeService::calculateEan13CheckDigit($prefix);
+
             $product = Product::create([
                 'name' => $data['name'],
-                'barcode' => '200000000'.str_pad((string) ($index + 1), 4, '0', STR_PAD_LEFT),
+                'barcode' => $prefix.$checkDigit,
                 'part_number' => $data['part'] ?? null,
                 'fitment' => $data['fitment'] ?? null,
-                'category_id' => $categoryModels[$data['category']]->id,
+                'category_id' => isset($categoryModels[$data['category']]) ? $categoryModels[$data['category']]->id : null,
                 'brand_id' => $brandModels[$data['brand']]->id,
                 'supplier_id' => $supplierModels->random()->id,
                 'unit' => $data['unit'],
@@ -119,16 +122,23 @@ class DatabaseSeeder extends Seeder
         }
 
         $expenseSamples = [
-            ['days' => 25, 'category' => 'Rent', 'description' => 'Shop rent - this month', 'amount' => 15000],
-            ['days' => 20, 'category' => 'Utilities', 'description' => 'Electricity bill', 'amount' => 3200],
-            ['days' => 18, 'category' => 'Salaries & Wages', 'description' => 'Staff wages - 1st half', 'amount' => 12000],
-            ['days' => 10, 'category' => 'Fuel & Transportation', 'description' => 'Delivery van fuel', 'amount' => 1800],
-            ['days' => 5, 'category' => 'Repairs & Maintenance', 'description' => 'Compressor servicing', 'amount' => 2500],
-            ['days' => 2, 'category' => 'Office Supplies', 'description' => 'Receipt paper, ink', 'amount' => 650],
+            ['days' => 25, 'category' => 'Rent', 'description' => 'Shop rent - this month', 'amount' => 15000, 'payee' => 'S & A Building Management', 'check' => 'BDO 0001021'],
+            ['days' => 20, 'category' => 'Utilities', 'description' => 'Electricity bill', 'amount' => 3200, 'payee' => 'CEPALCO'],
+            ['days' => 18, 'category' => 'Salaries & Wages', 'description' => 'Staff wages - 1st half', 'amount' => 12000, 'payee' => 'Shop staff (payroll)', 'check' => 'BDO 0001022'],
+            ['days' => 10, 'category' => 'Fuel & Transportation', 'description' => 'Delivery van fuel', 'amount' => 1800, 'payee' => 'Petron Lapasan'],
+            ['days' => 5, 'category' => 'Repairs & Maintenance', 'description' => 'Compressor servicing', 'amount' => 2500, 'payee' => 'RJ Aircon & Compressor Services'],
+            ['days' => 2, 'category' => 'Office Supplies', 'description' => 'Receipt paper, ink', 'amount' => 650, 'payee' => 'National Book Store'],
         ];
 
         foreach ($expenseSamples as $expense) {
+            [$bank, $checkNumber] = isset($expense['check']) ? explode(' ', $expense['check']) : [null, null];
+
             Expense::create([
+                'voucher_type' => $checkNumber ? Expense::TYPE_CHECK : Expense::TYPE_PETTY_CASH,
+                'payee' => $expense['payee'],
+                'bank_name' => $bank,
+                'check_number' => $checkNumber,
+                'check_date' => $checkNumber ? now()->subDays($expense['days'])->toDateString() : null,
                 'expense_date' => now()->subDays($expense['days'])->toDateString(),
                 'category' => $expense['category'],
                 'description' => $expense['description'],
@@ -179,5 +189,106 @@ class DatabaseSeeder extends Seeder
 
             $creditProduct->recordMovement(StockMovement::TYPE_SALE, -$creditQty, "Sale {$sale->invoice_number}", Sale::class, $sale->id);
         }
+
+        $supplier1 = $supplierModels->first();
+        $supplier2 = $supplierModels->skip(1)->first() ?? $supplier1;
+        $supplier3 = $supplierModels->skip(2)->first() ?? $supplier1;
+
+        // Seed sample Accounts Payable (Bills needed to be paid)
+        $payable1 = AccountPayable::create([
+            'supplier_id' => $supplier1->id,
+            'vendor_name' => $supplier1->name,
+            'bill_number' => 'BILL-202610-001',
+            'bill_date' => now()->subDays(20)->toDateString(),
+            'due_date' => now()->subDays(5)->toDateString(), // Overdue
+            'amount' => 45000.00,
+            'amount_paid' => 15000.00,
+            'status' => AccountPayable::STATUS_PARTIALLY_PAID,
+            'notes' => 'Bulk shipment of hydraulic hoses and JIC fittings.',
+            'user_id' => $admin->id,
+        ]);
+
+        // Seed corresponding delivery receipt
+        $purchase1 = Purchase::create([
+            'purchase_number' => 'PO-202610-0001',
+            'supplier_id' => $supplier1->id,
+            'supplier_name' => $supplier1->name,
+            'reference_number' => 'DR-9921',
+            'receipt_date' => now()->subDays(20)->toDateString(),
+            'total_amount' => 45000.00,
+            'payment_status' => Purchase::PAYMENT_PARTIAL,
+            'payment_method' => 'cash',
+            'amount_paid' => 15000.00,
+            'account_payable_id' => $payable1->id,
+            'due_date' => now()->subDays(5)->toDateString(),
+            'status' => Purchase::STATUS_RECEIVED,
+            'notes' => 'Received by warehouse team. Partial cash advance given.',
+            'user_id' => $admin->id,
+        ]);
+
+        $hoseProduct = Product::where('part_number', 'HH-050')->first();
+        if ($hoseProduct) {
+            $purchase1->items()->create([
+                'product_id' => $hoseProduct->id,
+                'product_name' => $hoseProduct->name,
+                'product_sku' => $hoseProduct->sku,
+                'quantity' => 150,
+                'unit_cost' => 150.00,
+                'subtotal' => 22500.00,
+            ]);
+        }
+
+        $jicProduct = Product::where('part_number', 'JIC-050M')->first();
+        if ($jicProduct) {
+            $purchase1->items()->create([
+                'product_id' => $jicProduct->id,
+                'product_name' => $jicProduct->name,
+                'product_sku' => $jicProduct->sku,
+                'quantity' => 500,
+                'unit_cost' => 45.00,
+                'subtotal' => 22500.00,
+            ]);
+        }
+
+        AccountPayable::create([
+            'supplier_id' => $supplier2->id,
+            'vendor_name' => $supplier2->name,
+            'bill_number' => 'BILL-202610-002',
+            'bill_date' => now()->subDays(10)->toDateString(),
+            'due_date' => now()->addDays(3)->toDateString(), // Due soon
+            'amount' => 28500.00,
+            'amount_paid' => 0.00,
+            'status' => AccountPayable::STATUS_UNPAID,
+            'notes' => 'Replacement filters and brake pad inventory stock.',
+            'user_id' => $manager->id,
+        ]);
+
+        AccountPayable::create([
+            'supplier_id' => $supplier3->id,
+            'vendor_name' => $supplier3->name,
+            'bill_number' => 'BILL-202610-003',
+            'bill_date' => now()->subDays(3)->toDateString(),
+            'due_date' => now()->addDays(14)->toDateString(),
+            'amount' => 62000.00,
+            'amount_paid' => 0.00,
+            'status' => AccountPayable::STATUS_UNPAID,
+            'notes' => 'Hydraulic gear pumps and cylinder components order.',
+            'user_id' => $admin->id,
+        ]);
+
+        AccountPayable::create([
+            'supplier_id' => $supplier1->id,
+            'vendor_name' => $supplier1->name,
+            'bill_number' => 'BILL-202609-088',
+            'bill_date' => now()->subDays(40)->toDateString(),
+            'due_date' => now()->subDays(10)->toDateString(),
+            'amount' => 35000.00,
+            'amount_paid' => 35000.00,
+            'status' => AccountPayable::STATUS_PAID,
+            'payment_method' => 'bank',
+            'reference_number' => 'BDO-TRF-99412',
+            'notes' => 'Settled in full via bank transfer.',
+            'user_id' => $admin->id,
+        ]);
     }
 }

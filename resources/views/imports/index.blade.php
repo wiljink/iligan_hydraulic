@@ -15,7 +15,7 @@
 
         <div class="bg-white rounded-lg shadow-sm p-6">
             <h3 class="font-semibold mb-2">2. Upload &amp; Import</h3>
-            <p class="text-sm text-gray-500 mb-4">Upload a filled-in .xlsx, .xls, or .csv file. Existing products are matched by barcode, then SKU, then name.</p>
+            <p class="text-sm text-gray-500 mb-4">Upload a filled-in .xlsx, .xls, or .csv file. Columns: Quantity, Unit, Product Name, Barcode, Category, Part Number, OEM Number, Cost, Selling Price. Existing products are matched by Barcode, then Product Name.</p>
             <form method="POST" action="{{ route('imports.products') }}" enctype="multipart/form-data" class="space-y-3">
                 @csrf
                 <input type="file" name="file" accept=".xlsx,.xls,.csv" required class="block w-full text-sm">

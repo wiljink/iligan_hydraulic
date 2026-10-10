@@ -2,22 +2,27 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Branch;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\StockMovement;
 use App\Models\Supplier;
+use App\Services\BarcodeService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\View\View;
-use Picqer\Barcode\BarcodeGeneratorPNG;
 
 class ProductController extends Controller
 {
     public function index(Request $request): View
     {
+        $branch = Branch::current();
+
         $products = Product::with(['category', 'brand', 'supplier'])
+            ->withBranchStock($branch)
             ->when($request->filled('q'), function ($q) use ($request) {
                 $term = '%'.$request->get('q').'%';
                 $q->where(function ($q) use ($term) {
@@ -37,7 +42,7 @@ class ProductController extends Controller
 
         $categories = Category::orderBy('name')->get();
 
-        return view('products.index', compact('products', 'categories'));
+        return view('products.index', compact('products', 'categories', 'branch'));
     }
 
     public function create(): View
@@ -61,7 +66,12 @@ class ProductController extends Controller
 
     public function edit(Product $product): View
     {
-        return view('products.edit', array_merge(['product' => $product], $this->formData()));
+        $product->load('branchStocks.branch');
+
+        return view('products.edit', array_merge([
+            'product' => $product,
+            'branch' => Branch::current(),
+        ], $this->formData()));
     }
 
     public function update(Request $request, Product $product): RedirectResponse
@@ -97,8 +107,9 @@ class ProductController extends Controller
             $quantity = -$quantity;
         }
 
-        if ($product->current_stock + $quantity < 0) {
-            return back()->with('error', 'Adjustment would result in negative stock.');
+        $branch = Branch::current();
+        if ($product->stockAt($branch) + $quantity < 0) {
+            return back()->with('error', 'Adjustment would result in negative stock at '.$branch?->name.'.');
         }
 
         $product->recordMovement($data['type'], $quantity, $data['note'] ?? null);
@@ -106,18 +117,78 @@ class ProductController extends Controller
         return back()->with('success', 'Stock updated.');
     }
 
-    public function barcode(Product $product): Response
+    public function barcode(Product $product, ?Request $request = null): Response
     {
+        $request = $request ?? request();
         $code = $product->barcode ?: $product->sku;
-        $generator = new BarcodeGeneratorPNG;
+        $scale = max(1, min(5, (int) $request->input('scale', $request->input('w', 2))));
+        $height = max(20, min(200, (int) $request->input('height', $request->input('h', 60))));
+        $format = strtolower((string) $request->input('format', 'png'));
 
-        $type = preg_match('/^\d{13}$/', $code)
-            ? BarcodeGeneratorPNG::TYPE_EAN_13
-            : BarcodeGeneratorPNG::TYPE_CODE_128;
+        if ($format === 'svg') {
+            $svg = BarcodeService::generateSvg($code, $scale, $height);
 
-        $png = $generator->getBarcode($code, $type, 2, 60);
+            return response($svg, 200)
+                ->header('Content-Type', 'image/svg+xml')
+                ->header('Cache-Control', 'public, max-age=86400');
+        }
 
-        return response($png, 200)->header('Content-Type', 'image/png');
+        $png = BarcodeService::generatePng($code, $scale, $height);
+
+        $response = response($png, 200)
+            ->header('Content-Type', 'image/png')
+            ->header('Cache-Control', 'public, max-age=86400');
+
+        if ($request->boolean('download')) {
+            $filename = ($product->barcode ?: $product->sku).'.png';
+            $response->header('Content-Disposition', 'attachment; filename="'.$filename.'"');
+        }
+
+        return $response;
+    }
+
+    public function printBarcode(Product $product): View
+    {
+        return view('products.barcode-print', compact('product'));
+    }
+
+    public function printBarcodes(Request $request): View
+    {
+        $categories = Category::orderBy('name')->get();
+        $selectedIds = collect(explode(',', (string) $request->get('ids', '')))
+            ->filter()
+            ->map(fn ($id) => (int) trim($id))
+            ->values();
+
+        $query = Product::with(['category', 'brand'])
+            ->where('is_active', true);
+
+        if ($selectedIds->isNotEmpty()) {
+            $query->whereIn('id', $selectedIds);
+        } elseif ($request->filled('category_id')) {
+            $query->where('category_id', $request->get('category_id'));
+        }
+
+        if ($request->filled('q')) {
+            $term = '%'.$request->get('q').'%';
+            $query->where(function ($q) use ($term) {
+                $q->where('name', 'like', $term)
+                    ->orWhere('sku', 'like', $term)
+                    ->orWhere('barcode', 'like', $term)
+                    ->orWhere('part_number', 'like', $term);
+            });
+        }
+
+        $products = $query->orderBy('name')->get();
+
+        return view('products.barcodes-bulk-print', compact('products', 'categories', 'selectedIds'));
+    }
+
+    public function generateBarcode(): JsonResponse
+    {
+        return response()->json([
+            'barcode' => BarcodeService::generateUniqueEan13(),
+        ]);
     }
 
     private function formData(): array
@@ -139,7 +210,7 @@ class ProductController extends Controller
             'sku' => ['nullable', 'string', 'max:100', 'unique:products,sku,'.$productId],
             'barcode' => ['nullable', 'string', 'max:100', 'unique:products,barcode,'.$productId],
             'part_number' => ['nullable', 'string', 'max:100'],
-            'oem_number' => ['nullable', 'string', 'max:100'],
+            'oem_number' => ['nullable', 'string', 'max:5000'],
             'fitment' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'category_id' => ['nullable', 'exists:categories,id'],

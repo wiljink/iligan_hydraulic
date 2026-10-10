@@ -23,11 +23,13 @@ class SettingsController extends Controller
             'company_address' => ['nullable', 'string', 'max:500'],
             'company_phone' => ['nullable', 'string', 'max:50'],
             'company_tin' => ['nullable', 'string', 'max:50'],
+            'company_tagline' => ['nullable', 'string', 'max:255'],
             'currency_symbol' => ['required', 'string', 'max:5'],
             'tax_rate' => ['required', 'numeric', 'min:0', 'max:1'],
             'tax_inclusive' => ['sometimes', 'boolean'],
             'low_stock_default' => ['required', 'integer', 'min:0'],
             'receipt_footer' => ['nullable', 'string', 'max:500'],
+            'payroll_days_per_month' => ['nullable', 'numeric', 'min:1', 'max:31'],
         ]);
 
         $data['tax_inclusive'] = $request->boolean('tax_inclusive') ? '1' : '0';

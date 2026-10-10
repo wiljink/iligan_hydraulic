@@ -41,11 +41,18 @@
             </thead>
             <tbody x-data="{ paying: null }">
                 @forelse ($sales as $sale)
-                    @php $balance = $sale->total - $sale->amount_paid; @endphp
+                    @php $balance = $sale->balance(); @endphp
                     <tr class="border-b last:border-0" x-show="paying !== {{ $sale->id }}">
                         <td class="py-2"><a href="{{ route('sales.show', $sale) }}" class="text-orange-600 hover:underline">{{ $sale->invoice_number }}</a></td>
                         <td class="py-2">{{ $sale->created_at->format('M d, Y') }}</td>
-                        <td class="py-2">{{ $sale->customer?->name ?? 'Walk-in' }}</td>
+                        <td class="py-2">
+                            @if ($sale->customer)
+                                <a href="{{ route('customers.show', $sale->customer) }}" class="hover:underline">{{ $sale->customer->name }}</a>
+                            @else
+                                Walk-in
+                            @endif
+                            <span class="text-xs text-gray-400 block">TIN: {{ $sale->customer?->tin_number ?: '—' }}</span>
+                        </td>
                         <td class="py-2 text-right">{{ money($sale->total) }}</td>
                         <td class="py-2 text-right">{{ money($sale->amount_paid) }}</td>
                         <td class="py-2 text-right font-medium text-red-600">{{ money($balance) }}</td>
